@@ -13,7 +13,7 @@ Parameters:
     Description: Choose your keypair
     Type: AWS::EC2::KeyPair::KeyName
     AllowedValues:
-         - firstkeypair
+      - firstkeypair
   
   myVPC:
     Description: Choose your vpc
@@ -22,33 +22,60 @@ Parameters:
   latestAmiId:
     Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
     Default: '/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64'
-
  
+
+
+
 Resources:
+  
   myWebServer:
     Type: AWS::EC2::Instance
     Properties:
       ImageId: !Ref latestAmiId
       InstanceType: !Ref myInstanceType
       KeyName: !Ref myKeyPair
-      LaunchTemplate: !Ref myLT
-      SecurityGroups: !Ref mySecGroup
-      UserData: !Base64 
-          #!/bin/bash
+      SecurityGroupIds:
+        - !Ref mySecGroup
+      SecurityGroups:
+        - 
+      Tags:
+      - Key: Name
+        Value: !Sub Webser of ${AWS::StackName}
+      UserData: !Base64 |
+        #!/bin/bash
         dnf update -y
         dnf install python3 -y
         dnf install python3-pip -y
         pip3 install flask
         dnf install git -y
         cd /home/ec2-user
-        FOLDER="https://github.com/Seymanurkara/001-roman-numerals-converter.git"
-        mkdir templates
+        FOLDER="https://github.com/Seymanurkara/001-roman-numerals-converter/main"
         wget -P templates ${FOLDER}/templates/index.html
         wget -P templates ${FOLDER}/templates/result.html
         wget ${FOLDER}/roman-numerals-converter-app.py
         python3 roman-numerals-converter-app.py
-
-
+ 
+  mySecGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow ssh, http, and custom 8080
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: seymanur-roman-number-conventor
+      VpcId: !Ref myVPC
 
   myLT:
     Type: AWS::EC2::LaunchTemplate
@@ -59,7 +86,14 @@ Resources:
         KeyName: !Ref myKeyPair
         SecurityGroups:
           - !Ref mySecGroup
-        UserData: !Base64 |
+        TagSpecifications:
+          - ResourceType: !Ref myWebServer
+            Tags:
+              -
+              - Key: Web Server of StackName
+                Value: seymanur_cfn_proje
+        UserData:  !Base64 |
+          #!/bin/bash
           dnf update -y
           dnf install python3 -y
           dnf install python3-pip -y
@@ -72,37 +106,10 @@ Resources:
           wget -P templates ${FOLDER}/templates/result.html
           wget ${FOLDER}/roman-numerals-converter-app.py
           python3 roman-numerals-converter-app.py
-      LaunchTemplateName: Web-Server-Of-StackName
       
-  mySecGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Allow ssh and http # Required
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          CidrIp: 0.0.0.0/0
-
-        - IpProtocol: tcp
-          FromPort: 22
-          ToPort: 22
-          CidrIp: 0.0.0.0/0
-
-      Tags:
-        - Key: Name
-          Value: Seymanur-cfn-proje
-      VpcId: !Ref myVPC
-
-    
-  
-
-  
 Outputs:
- 
-
-
-
-
-
-
+  StackVPC:
+    Description: The ID of the VPC
+    Value: !Ref myVPC
+    Export:
+      Name: !Join [ ":", [ !Ref "AWS::StackName", myVPC ] ]
